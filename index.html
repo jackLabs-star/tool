@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iOS 风格抽签 - 表格弹窗版</title>
+    <style>
+        :root {
+            --ios-bg: #F2F2F7;
+            --ios-card: #FFFFFF;
+            --ios-blue: #007AFF;
+            --ios-blue-active: #0062c4;
+            --ios-text: #000000;
+            --ios-gray-text: #8E8E93;
+            --ios-separator: #E5E5EA;
+            --overlay-bg: rgba(0, 0, 0, 0.4);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--ios-bg);
+            margin: 0;
+            padding: 20px;
+            color: var(--ios-text);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1 {
+            font-size: 34px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            margin-top: 10px;
+            letter-spacing: -0.5px;
+        }
+
+        /* 输入区域卡片 */
+        .card {
+            background-color: var(--ios-card);
+            border-radius: 12px;
+            padding: 0;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: flex;
+            overflow: hidden;
+        }
+
+        .input-column {
+            flex: 1;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-column:first-child {
+            border-right: 0.5px solid var(--ios-separator);
+        }
+
+        .label {
+            font-size: 13px;
+            color: var(--ios-gray-text);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        textarea {
+            width: 100%;
+            border: none;
+            resize: none;
+            font-size: 17px;
+            line-height: 1.5;
+            height: 150px;
+            outline: none;
+            font-family: inherit;
+            background: transparent;
+        }
+        
+        /* 按钮 */
+        .btn {
+            background-color: var(--ios-blue);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 14px;
+            font-size: 17px;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            margin-bottom: 30px;
+        }
+
+        .btn:active {
+            opacity: 0.7;
+        }
+
+        /* ----- 弹窗相关样式 ----- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--overlay-bg);
+            backdrop-filter: blur(5px); /* 毛玻璃背景 */
+            -webkit-backdrop-filter: blur(5px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: var(--ios-card);
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            border-radius: 14px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 16px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 17px;
+            border-bottom: 0.5px solid var(--ios-separator);
+            background-color: rgba(255,255,255,0.95);
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+            background-color: #fff;
+        }
+
+        /* ----- iOS 风格表格 ----- */
+        .ios-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+        }
+
+        .ios-table th {
+            background-color: #F9F9F9;
+            color: var(--ios-gray-text);
+            font-size: 12px;
+            text-transform: uppercase;
+            padding: 10px 16px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 0.5px solid var(--ios-separator);
+        }
+
+        .ios-table td {
+            padding: 12px 16px;
+            border-bottom: 0.5px solid var(--ios-separator);
+            color: var(--ios-text);
+        }
+        
+        /* 最后一列靠右，数字对齐更好看 */
+        .ios-table th:last-child, 
+        .ios-table td:last-child {
+            text-align: right;
+            color: var(--ios-gray-text);
+            font-feature-settings: "tnum"; /* 等宽数字 */
+        }
+
+        /* 动画行 */
+        .table-row-enter {
+            animation: slideIn 0.3s ease-out forwards;
+            background-color: rgba(0, 122, 255, 0.05); /* 新增时高亮一下 */
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .modal-footer {
+            padding: 16px;
+            border-top: 0.5px solid var(--ios-separator);
+            background-color: rgba(255,255,255,0.95);
+        }
+
+        .close-btn {
+            background-color: #E5E5EA;
+            color: #000;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .close-btn.active-action {
+            background-color: var(--ios-blue);
+            color: white;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>抽签助手</h1>
+
+    <!-- 输入区域 -->
+    <div class="card">
+        <div class="input-column">
+            <div class="label">人员名单</div>
+            <textarea id="namesInput" placeholder="请输入名字&#10;换行分隔">张三
+李四
+王五
+赵六
+孙七
+周八</textarea>
+        </div>
+        <div class="input-column">
+            <div class="label">抽签内容</div>
+            <textarea id="drawsInput" placeholder="请输入内容&#10;换行分隔">上上签
+一等奖
+大冒险
+扫地
+洗碗
+请客</textarea>
+        </div>
+    </div>
+
+    <button class="btn" onclick="startDraw()">开始抽签</button>
+
+    <!-- 弹窗结构 -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-content">
+            <div class="modal-header" id="modalTitle">正在抽签...</div>
+            
+            <div class="modal-body">
+                <table class="ios-table">
+                    <thead>
+                        <tr>
+                            <th width="30%">名字</th>
+                            <th width="40%">结果</th>
+                            <th width="30%">时间</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody">
+                        <!-- JS 动态插入行 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-footer">
+                <button class="close-btn" id="closeBtn" onclick="closeModal()" disabled>请等待结束...</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 洗牌算法
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [
+                    array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function getFormattedTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+        }
+
+        function startDraw() {
+            const namesText = document.getElementById('namesInput').value;
+            const drawsText = document.getElementById('drawsInput').value;
+
+            let names = namesText.split('\n').map(item => item.trim()).filter(item => item !== '');
+            let draws = drawsText.split('\n').map(item => item.trim()).filter(item => item !== '');
+
+            if (names.length === 0 || draws.length === 0) {
+                alert('请确保两边都输入了内容');
+                return;
+            }
+
+            // 打开弹窗
+            const modal = document.getElementById('modalOverlay');
+            const tbody = document.getElementById('resultTableBody');
+            const closeBtn = document.getElementById('closeBtn');
+            const modalTitle = document.getElementById('modalTitle');
+
+            tbody.innerHTML = ''; // 清空旧数据
+            modal.classList.add('active');
+            
+            // 初始化按钮状态
+            closeBtn.innerText = '抽签中...';
+            closeBtn.disabled = true;
+            closeBtn.classList.remove('active-action');
+            modalTitle.innerText = '正在匹配';
+
+            // 逻辑准备
+            let shuffledNames = shuffle([...names]); 
+            let minLength = Math.min(shuffledNames.length, draws.length);
+            let currentIndex = 0;
+
+            // 1秒间隔定时器
+            const timer = setInterval(() => {
+                if (currentIndex >= minLength) {
+                    // 结束逻辑
+                    clearInterval(timer);
+                    closeBtn.innerText = '完成 (关闭)';
+                    closeBtn.disabled = false;
+                    closeBtn.classList.add('active-action'); // 变蓝
+                    modalTitle.innerText = '抽签结果列表';
+                    return;
+                }
+
+                // 获取数据
+                const name = shuffledNames[currentIndex];
+                const draw = draws[currentIndex];
+                const timeStr = getFormattedTime();
+
+                // 插入表格行
+                const tr = document.createElement('tr');
+                tr.className = 'table-row-enter';
+                tr.innerHTML = `
+                    <td><strong>${name}</strong></td>
+                    <td>${draw}</td>
+                    <td>${timeStr}</td>
+                `;
+                
+                tbody.appendChild(tr);
+
+                // 自动滚动到底部
+                const modalBody = document.querySelector('.modal-body');
+                modalBody.scrollTop = modalBody.scrollHeight;
+
+                currentIndex++;
+
+            }, 1000); // 1000ms = 1秒
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+    </script>
+</body>
+</html>
